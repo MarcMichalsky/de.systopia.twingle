@@ -34,6 +34,20 @@ function _civicrm_api3_twingle_donation_Submit_spec(&$params) {
     'api.required' => 1,
     'description' => E::ts('The Twingle project ID.'),
   );
+  $params['internal_project_id'] = array(
+    'name'         => 'internal_project_id',
+    'title'        => E::ts('Internal Project ID'),
+    'type'         => CRM_Utils_Type::T_STRING,
+    'api.required' => 0,
+    'description'  => E::ts('An internal ID that can be set and used to identify the project in CiviCRM.'),
+  );
+  $params['event'] = array(
+    'name'         => 'event',
+    'title'        => E::ts('Event'),
+    'type'         => CRM_Utils_Type::T_INT,
+    'api.required' => 0,
+    'description'  => E::ts('ID of the event the transaction was made on (only for projects of type event)'),
+  );
   $params['trx_id'] = array(
     'name' => 'trx_id',
     'title' => E::ts('Transaction ID'),
@@ -54,6 +68,13 @@ function _civicrm_api3_twingle_donation_Submit_spec(&$params) {
     'type'         => CRM_Utils_Type::T_STRING,
     'api.required' => 0,
     'description'  => E::ts('The purpose of the donation.'),
+  );
+  $params['internal_purpose_id'] = array(
+    'name'         => 'internal_purpose_id',
+    'title'        => E::ts('Internal purpose ID'),
+    'type'         => CRM_Utils_Type::T_STRING,
+    'api.required' => 0,
+    'description'  => E::ts('An internal id for this purpose.'),
   );
   $params['amount'] = array(
     'name'         => 'amount',
@@ -139,6 +160,13 @@ function _civicrm_api3_twingle_donation_Submit_spec(&$params) {
     'api.required' => 0,
     'api.default'  => 0,
     'description'  => E::ts('Whether the donation is submitted anonymously.'),
+  );
+  $params['person_id'] = array(
+    'name'         => 'person_id',
+    'title'        => E::ts('Twingle person ID'),
+    'type'         => CRM_Utils_Type::T_STRING,
+    'api.required' => 0,
+    'description'  => E::ts('Unique person ID on the twingle platform'),
   );
   $params['user_gender'] = array(
     'name'         => 'user_gender',
@@ -238,12 +266,12 @@ function _civicrm_api3_twingle_donation_Submit_spec(&$params) {
     'api.required' => 0,
     'description'  => E::ts('Additional information of the contact.'),
   );
-  $params['campaign_id'] = array(
-    'name' => 'campaign_id',
-    'title' => E::ts('Campaign ID'),
-    'type' => CRM_Utils_Type::T_STRING,
+  $params['remarks'] = array(
+    'name'         => 'remarks',
+    'title'        => E::ts('Remarks'),
+    'type'         => CRM_Utils_Type::T_STRING,
     'api.required' => 0,
-    'description' => E::ts('The CiviCRM ID of a campaign to assign the contribution.'),
+    'description'  => E::ts('An optional message from the donor.'),
   );
   $params['custom_fields'] = array(
     'name'         => 'custom_fields',
