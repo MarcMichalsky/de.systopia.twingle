@@ -329,15 +329,15 @@ function civicrm_api3_twingle_donation_Submit($params) {
     // Extract custom field values using the profile's mapping of Twingle fields
     // to CiviCRM custom fields.
     $custom_fields = array();
-    if (!empty($params['custom_fields'])) {
-      $custom_field_mapping = $profile->getCustomFieldMapping();
+    $custom_field_mapping = $profile->getCustomFieldMapping();
 
-      // Include user_extrafield in custom_field_mapping if it is referenced there.
-      // See issue #50.
-      if(!empty($params['user_extrafield']) && isset($custom_field_mapping['user_extrafield'])) {
-        $params['custom_fields']['user_extrafield'] = $params['user_extrafield'];
-      }
+    // Include user_extrafield in custom_field_mapping if it is referenced there.
+    // See issue #50.
+    if(!empty($params['user_extrafield']) && isset($custom_field_mapping['user_extrafield'])) {
+      $params['custom_fields']['user_extrafield'] = $params['user_extrafield'];
+    }
 
+    if (!empty($params['custom_fields']) && is_array($params['custom_fields'])) {
       foreach ($params['custom_fields'] as $twingle_field => $value) {
         if (isset($custom_field_mapping[$twingle_field])) {
           // Get custom field definition to store values by entity the field
