@@ -208,6 +208,23 @@ class CRM_Twingle_Submission {
       $contact_data['preferred_language'] = $mapping[$contact_data['preferred_language']];
     }
 
+    // If there is an external_identifier, we can try to find a corresponding
+    // contact
+    if (isset($contact_data['external_identifier']) && !empty($contact_data['external_identifier'])){
+    try {
+      $result = civicrm_api3('Contact', 'getsingle',
+        ['external_identifier' => $contact_data['external_identifier']]);
+      if ($result['is_error'] != 0) {
+        throw Civicrm_API3_Exception($result['error_message']);
+      }
+      else {
+        $contact_data['id'] = $result['contact_id'];
+      }
+    } catch (CiviCRM_API3_Exception $e) {
+      # No matching contact was found, so do nothing
+    }
+  }
+
     // Pass to XCM.
     $contact_data['contact_type'] = $contact_type;
     $contact = civicrm_api3('Contact', 'getorcreate', $contact_data);
@@ -414,7 +431,11 @@ class CRM_Twingle_Submission {
       // use the submitted campaign if set
       if (!empty($submission['campaign_id'])) {
         $entity_data['campaign_id'] = $submission['campaign_id'];
-      } // otherwise use the profile's
+      } // or use the submitted internal_project_id if set
+      elseif (!empty($submission['internal_project_id'])) {
+        $entity_data['campaign_id'] = $submission['internal_project_id'];
+      }
+      // otherwise use the profile's
       elseif (!empty($campaign = $profile->getAttribute('campaign'))) {
         $entity_data['campaign_id'] = $campaign;
       }

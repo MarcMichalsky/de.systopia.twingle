@@ -427,7 +427,8 @@ function civicrm_api3_twingle_donation_Submit($params) {
       // Get the ID of the contact matching the given contact data, or create a
       // new contact if none exists for the given contact data.
       $contact_data = array();
-      foreach (array(
+      foreach ([
+                 'person_id' => 'external_identifier',
                  'user_firstname' => 'first_name',
                  'user_lastname' => 'last_name',
                  'gender_id' => 'gender_id',
@@ -437,10 +438,16 @@ function civicrm_api3_twingle_donation_Submit($params) {
                  'user_language' => 'preferred_language',
                  'user_title' => 'formal_title',
                  'debit_iban' => 'iban',
-               ) as $contact_param => $contact_component) {
+               ] as $contact_param => $contact_component) {
         if (!empty($params[$contact_param])) {
           $contact_data[$contact_component] = $params[$contact_param];
         }
+      }
+
+      // Ad tw_ prefix to external_identifier
+      if (isset($contact_data['external_identifier'])
+        && !empty($contact_data['external_identifier'])) {
+        $contact_data['external_identifier'] = 'tw_' . $contact_data['external_identifier'];
       }
 
       // Get the prefix ID defined within the profile
