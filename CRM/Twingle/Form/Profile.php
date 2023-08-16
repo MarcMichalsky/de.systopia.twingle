@@ -14,8 +14,8 @@
 +-------------------------------------------------------------*/
 
 use CRM_Twingle_ExtensionUtil as E;
-use CRM_Twingle_Exceptions_ProfileException as ProfileException;
-use CRM_Twingle_Exceptions_ProfileValidationError as ProfileValidationError;
+use CRM\Twingle\Exceptions\ProfileException as ProfileException;
+use CRM\Twingle\Exceptions\ProfileValidationError as ProfileValidationError;
 
 /**
  * Form controller class
