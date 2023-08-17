@@ -247,7 +247,7 @@ class CRM_Twingle_Profile {
               2 => $profile->getName()
             ]
           ),
-          ProfileValidationError::ERROR_CODE_PROFILE_VALIDATION_FAILED
+          ProfileValidationError::ERROR_CODE_PROFILE_VALIDATION_WARNING
         );
       }
     }
