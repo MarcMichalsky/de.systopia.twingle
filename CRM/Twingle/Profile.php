@@ -62,14 +62,12 @@ class CRM_Twingle_Profile {
 
   /**
    * Logs (production) access to this profile
-   *
-   * @return bool
    */
   public function logAccess() {
     CRM_Core_DAO::executeQuery("
-        UPDATE civicrm_twingle_profile 
-        SET 
-            last_access = NOW(), 
+        UPDATE civicrm_twingle_profile
+        SET
+            last_access = NOW(),
             access_counter = access_counter + 1
         WHERE name = %1", [1 => [$this->name, 'String']]);
   }
@@ -105,7 +103,7 @@ class CRM_Twingle_Profile {
     $custom_field_mapping = [];
     if (!empty($custom_field_definition = $this->getAttribute('custom_field_mapping'))) {
       foreach (preg_split('/\r\n|\r|\n/', $custom_field_definition, -1, PREG_SPLIT_NO_EMPTY) as $custom_field_map) {
-        list($twingle_field_name, $custom_field_name) = explode("=", $custom_field_map);
+        [$twingle_field_name, $custom_field_name] = explode("=", $custom_field_map);
         $custom_field_mapping[$twingle_field_name] = $custom_field_name;
       }
     }
@@ -189,12 +187,7 @@ class CRM_Twingle_Profile {
    * @return mixed | NULL
    */
   public function getAttribute($attribute_name, $default = NULL) {
-    if (isset($this->data[$attribute_name])) {
-      return $this->data[$attribute_name];
-    }
-    else {
-      return $default;
-    }
+    return $this->data[$attribute_name] ?? $default;
   }
 
   /**
@@ -500,7 +493,6 @@ class CRM_Twingle_Profile {
       'pi_paypal' => E::ts('PayPal'),
       'pi_sofortueberweisung' => E::ts('SOFORT Überweisung'),
       'pi_amazonpay' => E::ts('Amazon Pay'),
-      'pi_paydirekt' => E::ts('paydirekt'),
       'pi_applepay' => E::ts('Apple Pay'),
       'pi_googlepay' =>  E::ts('Google Pay'),
       'pi_paydirekt' => E::ts('Paydirekt'),
@@ -529,7 +521,7 @@ class CRM_Twingle_Profile {
       'financial_type_id_recur' => 1, // "Donation"
       'pi_banktransfer' => 5, // "EFT"
       'pi_debit_manual' => NULL,
-      'pi_debit_automatic' => 3, // Debit
+      'pi_debit_automatic' => 2, // Debit
       'pi_creditcard' => 1, // "Credit Card"
       'pi_mobilephone_germany' => NULL,
       'pi_paypal' => NULL,
@@ -538,7 +530,6 @@ class CRM_Twingle_Profile {
       'pi_paydirekt' => NULL,
       'pi_applepay' => NULL,
       'pi_googlepay' => NULL,
-      'pi_paydirekt' => NULL,
       'pi_twint' => NULL,
       'pi_ideal' => NULL,
       'pi_post_finance' => NULL,
