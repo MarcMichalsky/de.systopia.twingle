@@ -660,7 +660,7 @@ class CRM_Twingle_Profile {
    * @param string $project_id
    *
    * @return CRM_Twingle_Profile
-   * @throws \CRM_Twingle_Exceptions_ProfileException
+   * @throws \CRM\Twingle\Exceptions\ProfileException
    * @throws \Civi\Core\Exception\DBQueryException
    */
   public static function getProfileForProject($project_id) {
@@ -681,7 +681,10 @@ class CRM_Twingle_Profile {
       return $default_profile;
     }
     else {
-      throw new ProfileException('Could not find default profile', ProfileException::ERROR_CODE_DEFAULT_PROFILE_NOT_FOUND);
+      throw new ProfileException(
+        'Could not find default profile',
+        ProfileException::ERROR_CODE_DEFAULT_PROFILE_NOT_FOUND
+      );
     }
   }
 
