@@ -148,7 +148,7 @@ class CRM_Twingle_Form_Profile extends CRM_Core_Form {
     }
 
     // Verify that a profile with the given id exists.
-
+    if ($this->_op != 'copy' && $this->_op != 'create') {
     if ($this->_op != 'copy') {
       $this->profile_id = CRM_Utils_Request::retrieve('id', 'Int', $this);
       $this->profile = CRM_Twingle_Profile::getProfile($this->profile_id);
