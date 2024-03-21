@@ -44,6 +44,16 @@ class CRM_Twingle_Profile {
   protected $data;
 
   /**
+   * @var array $check_box_fields
+   *   List of check box fields
+   */
+  public $check_box_fields = [
+    'newsletter_double_opt_in',
+    'enable_shop_integration',
+    'shop_map_products',
+  ];
+
+  /**
    * CRM_Twingle_Profile constructor.
    *
    * @param string $name
@@ -194,6 +204,16 @@ class CRM_Twingle_Profile {
       },
       explode(',', $this->getAttribute('selector') ?? '')
     );
+  }
+
+  /**
+   * Determine if Twingle Shop integration is enabled in general and
+   * specifically for this profile.
+   * @return bool
+   */
+  public function isShopEnabled(): bool {
+    return Civi::settings()->get('twingle_use_shop') &&
+      $this->data['enable_shop_integration'];
   }
 
   /**
@@ -528,6 +548,10 @@ class CRM_Twingle_Profile {
         'membership_postprocess_call' => ['required' => FALSE],
         'newsletter_double_opt_in' => ['required' => FALSE],
         'required_address_components' => ['required' => FALSE],
+        'enable_shop_integration' => ['required' => FALSE],
+        'shop_financial_type' => ['required' => FALSE],
+        'shop_donation_financial_type' => ['required' => FALSE],
+        'shop_map_products' => ['required' => FALSE],
       ],
       // Add payment methods.
       array_combine(
@@ -644,6 +668,10 @@ class CRM_Twingle_Profile {
         'city',
         'country',
       ],
+      'enable_shop_integration' => FALSE,
+      'shop_financial_type' => 1,
+      'shop_donation_financial_type' => 1,
+      'shop_map_products' => FALSE,
     ]
     // Add contribution status for all payment methods.
     // phpcs:ignore Drupal.Formatting.SpaceUnaryOperator.PlusMinus
@@ -660,7 +688,7 @@ class CRM_Twingle_Profile {
    * @param string $project_id
    *
    * @return CRM_Twingle_Profile
-   * @throws \CRM\Twingle\Exceptions\ProfileException
+   * @throws \Civi\Twingle\Exceptions\ProfileException
    * @throws \Civi\Core\Exception\DBQueryException
    */
   public static function getProfileForProject($project_id) {
@@ -677,7 +705,6 @@ class CRM_Twingle_Profile {
     }
 
     // If none matches, use the default profile.
-    $default_profile = $profiles['default'];
     if (!empty($default_profile)) {
       return $default_profile;
     }
@@ -774,5 +801,4 @@ class CRM_Twingle_Profile {
     }
     return $stats;
   }
-
 }
