@@ -551,6 +551,8 @@ class CRM_Twingle_Profile {
         'shop_financial_type' => ['required' => FALSE],
         'shop_donation_financial_type' => ['required' => FALSE],
         'shop_map_products' => ['required' => FALSE],
+        'map_as_contribution_notes' => ['required' => FALSE],
+        'map_as_contact_notes' => ['required' => FALSE],
       ],
       // Add payment methods.
       array_combine(
@@ -671,6 +673,8 @@ class CRM_Twingle_Profile {
       'shop_financial_type' => 1,
       'shop_donation_financial_type' => 1,
       'shop_map_products' => FALSE,
+      'map_as_contribution_notes' => [],
+      'map_as_contact_notes' => [],
     ]
     // Add contribution status for all payment methods.
     // phpcs:ignore Drupal.Formatting.SpaceUnaryOperator.PlusMinus
