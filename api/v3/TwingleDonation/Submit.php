@@ -533,7 +533,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
 
     // If usage of double opt-in is selected, use MailingEventSubscribe.create
     // to add contact to newsletter groups defined in the profile
-    $result_values['newsletter']['newsletter_double_opt_in']
+    $result_values['newsletter_double_opt_in']
       = (bool) $profile->getAttribute('newsletter_double_opt_in')
       ? 'true'
       : 'false';
@@ -563,7 +563,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
             ]
           )['visibility'] == 'Public Pages';
         if (!in_array($group_id, $group_memberships, FALSE) && $is_public_group) {
-          $result_values['newsletter'][][$group_id] = civicrm_api3(
+          $result = civicrm_api3(
             'MailingEventSubscribe',
             'create',
             [
@@ -572,9 +572,12 @@ function civicrm_api3_twingle_donation_Submit($params) {
               'contact_id' => $contact_id,
             ]
           );
+          $subscription = CRM_Utils_Array::first($result['values']);
+          $subscription['group_id'] = $group_id;
+          $result_values['newsletter_subscriptions'][] = $subscription;
         }
         elseif ($is_public_group) {
-          $result_values['newsletter'][] = $group_id;
+          $result_values['newsletter_group_ids'][] = $group_id;
         }
       }
       // If requested, add contact to newsletter groups defined in the profile.
@@ -593,8 +596,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
             'contact_id' => $contact_id,
           ]
         );
-
-        $result_values['newsletter'][] = $group_id;
+        $result_values['newsletter_group_ids'][] = $group_id;
       }
     }
 
@@ -626,8 +628,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
           'group_id' => $group_id,
           'contact_id' => $contact_id,
         ]);
-
-        $result_values['donation_receipt'][] = $group_id;
+        $result_values['donation_receipt_group_ids'][] = $group_id;
       }
     }
 
@@ -840,7 +841,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
         );
       }
 
-      $result_values['contribution'] = array_pop($contribution['values']);
+      $result_values['contribution'] = CRM_Utils_Array::first($contribution['values']);
 
       // Add products as line items to the contribution
       if (!empty($params['products']) && $profile->isShopEnabled()) {
