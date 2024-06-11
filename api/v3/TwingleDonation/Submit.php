@@ -434,7 +434,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
       // Get the prefix ID defined within the profile
       if (
         isset($params['user_gender'])
-        && NULL !== ($prefix_id = $profile->getAttribute('prefix_' . $params['user_gender']))
+        && is_numeric($prefix_id = $profile->getAttribute('prefix_' . $params['user_gender']))
       ) {
         $contact_data['prefix_id'] = $prefix_id;
       }
@@ -538,6 +538,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
     if (
       (bool) $profile->getAttribute('newsletter_double_opt_in')
       && isset($params['newsletter'])
+      && 1 == $params['newsletter']
       && is_array($groups = $profile->getAttribute('newsletter_groups'))
     ) {
       $group_memberships = array_column(
@@ -578,6 +579,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
     }
     elseif (
       isset($params['newsletter'])
+      && 1 == $params['newsletter']
       && is_array($groups = $profile->getAttribute('newsletter_groups'))
     ) {
       foreach ($groups as $group_id) {
@@ -597,6 +599,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
     // If requested, add contact to postinfo groups defined in the profile.
     if (
       isset($params['postinfo'])
+      && 1 == $params['postinfo']
       && is_array($groups = $profile->getAttribute('postinfo_groups'))
     ) {
       foreach ($groups as $group_id) {
@@ -613,6 +616,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
     // profile.
     if (
       isset($params['donation_receipt'])
+      && 1 == $params['donation_receipt']
       && is_array($groups = $profile->getAttribute('donation_receipt_groups'))
     ) {
       foreach ($groups as $group_id) {
@@ -895,8 +899,8 @@ function civicrm_api3_twingle_donation_Submit($params) {
       $result_values['membership'] = $membership;
 
       // call the postprocess API
-      $postprocess_call = $profile->getAttribute('membership_postprocess_call');
-      if (is_string($postprocess_call)) {
+      if ('' !== ($postprocess_call = $profile->getAttribute('membership_postprocess_call', ''))) {
+        /** @var string $postprocess_call */
         [$pp_entity, $pp_action] = explode('.', $postprocess_call, 2);
         try {
           // gather the contribution IDs
