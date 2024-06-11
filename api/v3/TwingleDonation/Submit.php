@@ -496,13 +496,15 @@ function civicrm_api3_twingle_donation_Submit($params) {
       foreach (['user_extrafield'] as $target) {
         if (
           isset($params[$target])
-          && '' != $params[$target]
+          && '' !== $params[$target]
           && in_array($target, $contact_note_mappings)
         ) {
-          civicrm_api3('Note', 'create', [
-            'entity_table' => 'civicrm_contact',
-            'entity_id' => $contact_id,
-            'note' => $params[$target],
+          civicrm_api4('Note', 'create', [
+            'values' => [
+              'entity_table' => 'civicrm_contact',
+              'entity_id' => $contact_id,
+              'note' => $params[$target],
+            ],
           ]);
         }
       }
@@ -853,12 +855,14 @@ function civicrm_api3_twingle_donation_Submit($params) {
       if (
         in_array($target, $contribution_note_mappings)
         && isset($params[$target])
-        && '' != $params[$target]
+        && '' !== $params[$target]
       ) {
-        civicrm_api3('Note', 'create', [
-          'entity_table' => 'civicrm_contribution',
-          'entity_id' => CRM_Utils_Array::first($result_values['contribution'])['id'],
-          'note' => $params[$target],
+        civicrm_api4('Note', 'create', [
+          'values' => [
+            'entity_table' => 'civicrm_contribution',
+            'entity_id' => CRM_Utils_Array::first($result_values['contribution'])['id'],
+            'note' => $params[$target],
+          ],
         ]);
       }
     }
