@@ -624,7 +624,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
       $contribution_data += $custom_fields['Contribution'];
     }
 
-    if (isset($params['purpose'])) {
+    if (isset($params['purpose']) && '' !== $params['purpose']) {
       $contribution_data['note'] = $params['purpose'];
     }
 
