@@ -1,4 +1,4 @@
-<?php
+´<?php
 /*------------------------------------------------------------+
 | SYSTOPIA Twingle Integration                                |
 | Copyright (C) 2018 SYSTOPIA                                 |
@@ -17,6 +17,7 @@ declare(strict_types = 1);
 
 use CRM_Twingle_ExtensionUtil as E;
 use Civi\Twingle\Exceptions\BaseException;
+use Civi\Api4\Note;
 
 /**
  * TwingleDonation.Submit API specification
@@ -492,20 +493,19 @@ function civicrm_api3_twingle_donation_Submit($params) {
       }
 
       // Create contact notes.
+      /** @phpstan-var array<string> $contact_note_mappings */
       $contact_note_mappings = $profile->getAttribute('map_as_contact_notes', []);
       foreach (['user_extrafield'] as $target) {
         if (
           isset($params[$target])
           && '' !== $params[$target]
-          && in_array($target, $contact_note_mappings)
+          && in_array($target, $contact_note_mappings, TRUE)
         ) {
-          civicrm_api4('Note', 'create', [
-            'values' => [
-              'entity_table' => 'civicrm_contact',
-              'entity_id' => $contact_id,
-              'note' => $params[$target],
-            ],
-          ]);
+          Note::create(FALSE)
+            ->addValue('entity_table', 'civicrm_contact')
+            ->addValue('entity_id', $contact_id)
+            ->addValue('note', $params[$target])
+            ->execute();
         }
       }
 
@@ -539,10 +539,10 @@ function civicrm_api3_twingle_donation_Submit($params) {
       : 'false';
     if (
       (bool) $profile->getAttribute('newsletter_double_opt_in')
-      && isset($params['newsletter'])
-      && 1 == $params['newsletter']
+      && (bool) ($params['newsletter'] ?? FALSE)
       && is_array($groups = $profile->getAttribute('newsletter_groups'))
     ) {
+      // TODO: Ensure the values being integers.
       $group_memberships = array_column(
         civicrm_api3(
           'GroupContact',
@@ -572,7 +572,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
               'contact_id' => $contact_id,
             ]
           );
-          $subscription = CRM_Utils_Array::first($result['values']);
+          $subscription = reset($result['values']);
           $subscription['group_id'] = $group_id;
           $result_values['newsletter_subscriptions'][] = $subscription;
         }
@@ -583,8 +583,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
       // If requested, add contact to newsletter groups defined in the profile.
     }
     elseif (
-      isset($params['newsletter'])
-      && 1 == $params['newsletter']
+      (bool) ($params['newsletter'] ?? FALSE)
       && is_array($groups = $profile->getAttribute('newsletter_groups'))
     ) {
       foreach ($groups as $group_id) {
@@ -602,8 +601,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
 
     // If requested, add contact to postinfo groups defined in the profile.
     if (
-      isset($params['postinfo'])
-      && 1 == $params['postinfo']
+      (bool) ($params['postinfo'] ?? FALSE)
       && is_array($groups = $profile->getAttribute('postinfo_groups'))
     ) {
       foreach ($groups as $group_id) {
@@ -617,16 +615,16 @@ function civicrm_api3_twingle_donation_Submit($params) {
     }
 
     // If requested, add contact to donation_receipt groups defined in the
-    // profile.
+    // profile. If an organisation is provided, add it to the groups instead.
+    // (see issue #83)
     if (
-      isset($params['donation_receipt'])
-      && 1 == $params['donation_receipt']
+      (bool) ($params['donation_receipt'] ?? FALSE)
       && is_array($groups = $profile->getAttribute('donation_receipt_groups'))
     ) {
       foreach ($groups as $group_id) {
         civicrm_api3('GroupContact', 'create', [
           'group_id' => $group_id,
-          'contact_id' => $contact_id,
+          'contact_id' => $organisation_id ?? $contact_id,
         ]);
         $result_values['donation_receipt_group_ids'][] = $group_id;
       }
@@ -740,7 +738,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
       // Create the mandate.
       $mandate = civicrm_api3('SepaMandate', 'createfull', $mandate_data);
 
-      $result_values['sepa_mandate'] = CRM_Utils_Array::first($mandate['values']);
+      $result_values['sepa_mandate'] = reset($mandate['values']);
 
       // Add contribution data to result_values for later use
       $contribution_id = $result_values['sepa_mandate']['entity_id'];
@@ -834,38 +832,42 @@ function civicrm_api3_twingle_donation_Submit($params) {
       }
 
       $contribution = civicrm_api3('Contribution', 'create', $contribution_data);
-      if ($contribution['is_error']) {
+      /** @phpstan-var array{'values': array<int, array<mixed>>, 'is_error'?: string} $contribution */
+      if ((bool) ($contribution['is_error'] ?? FALSE)) {
         throw new CRM_Core_Exception(
           E::ts('Could not create contribution'),
           'api_error'
         );
       }
+      $contribution = reset($contribution['values']);
+      /** @phpstan-var array{'id': int} $contribution */
 
-      $result_values['contribution'] = CRM_Utils_Array::first($contribution['values']);
-
+    }
+    
+      // Add notes to the contribution.
+      /** @phpstan-var array<string> $contribution_note_mappings */
+      $contribution_note_mappings = $profile->getAttribute('map_as_contribution_notes', []);
+      foreach (['purpose', 'remarks'] as $target) {
+        if (
+          in_array($target, $contribution_note_mappings, TRUE)
+          && isset($params[$target])
+          && '' !== $params[$target]
+        ) {
+          Note::create(FALSE)
+            ->addValue('entity_table', 'civicrm_contribution')
+            ->addValue('entity_id', $contribution['id'])
+            ->addValue('note', $params[$target])
+            ->execute();
+        }
+      }
+      
       // Add products as line items to the contribution
       if (!empty($params['products']) && $profile->isShopEnabled()) {
         $line_items = CRM_Twingle_Submission::createLineItems($result_values, $params, $profile);
         $result_values['contribution']['line_items'] = $line_items;
       }
-    }
 
-    // Add notes to the contribution.
-    $contribution_note_mappings = $profile->getAttribute("map_as_contribution_notes", []);
-    foreach (['purpose', 'remarks'] as $target) {
-      if (
-        in_array($target, $contribution_note_mappings)
-        && isset($params[$target])
-        && '' !== $params[$target]
-      ) {
-        civicrm_api4('Note', 'create', [
-          'values' => [
-            'entity_table' => 'civicrm_contribution',
-            'entity_id' => $result_values['contribution']['id'],
-            'note' => $params[$target],
-          ],
-        ]);
-      }
+      $result_values['contribution'] = $contribution;
     }
 
     // MEMBERSHIP CREATION
