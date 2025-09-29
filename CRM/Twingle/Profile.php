@@ -560,6 +560,7 @@ class CRM_Twingle_Profile {
         'enable_shop_integration' => ['required' => FALSE],
         'shop_financial_type' => ['required' => FALSE],
         'shop_donation_financial_type' => ['required' => FALSE],
+        'shop_additional_donation_financial_type' => ['required' => FALSE],
         'shop_map_products' => ['required' => FALSE],
       ],
       // Add payment methods.
@@ -683,6 +684,7 @@ class CRM_Twingle_Profile {
       'enable_shop_integration' => FALSE,
       'shop_financial_type' => 1,
       'shop_donation_financial_type' => 1,
+      'shop_additional_donation_financial_type' => 1,
       'shop_map_products' => FALSE,
     ]
     // Add contribution status for all payment methods.
