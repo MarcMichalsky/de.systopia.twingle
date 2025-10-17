@@ -17,7 +17,6 @@ declare(strict_types = 1);
 
 use CRM_Twingle_ExtensionUtil as E;
 use Civi\Twingle\Exceptions\BaseException;
-use Civi\Api4\Note;
 
 /**
  * TwingleDonation.Submit API specification
@@ -501,20 +500,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
 
       // Create contact notes.
       /** @phpstan-var array<string> $contact_note_mappings */
-      $contact_note_mappings = $profile->getAttribute('map_as_contact_notes', []);
-      foreach (['user_extrafield'] as $target) {
-        if (
-          isset($params[$target])
-          && '' !== $params[$target]
-          && in_array($target, $contact_note_mappings, TRUE)
-        ) {
-          Note::create(FALSE)
-            ->addValue('entity_table', 'civicrm_contact')
-            ->addValue('entity_id', $contact_id)
-            ->addValue('note', $params[$target])
-            ->execute();
-        }
-      }
+      CRM_Twingle_Submission::createContactNotes(intval($contact_id), $params, $profile);
 
       // Share organisation address with individual contact, using configured
       // location type for organisation address.
@@ -762,6 +748,9 @@ function civicrm_api3_twingle_donation_Submit($params) {
         throw new CiviCRM_API3_Exception($message, 'api_error');
       }
 
+      // Add notes to the contribution.
+      CRM_Twingle_Submission::createContributionNotes(intval($contribution_id), $params, $profile);;
+
       // Add products as line items to the contribution
       if (!empty($params['products']) && $profile->isShopEnabled()) {
         $line_items = CRM_Twingle_Submission::createLineItems($result_values, $params, $profile);
@@ -857,21 +846,7 @@ function civicrm_api3_twingle_donation_Submit($params) {
       /** @phpstan-var array{'id': int} $contribution */
 
       // Add notes to the contribution.
-      /** @phpstan-var array<string> $contribution_note_mappings */
-      $contribution_note_mappings = $profile->getAttribute('map_as_contribution_notes', []);
-      foreach (['purpose', 'remarks'] as $target) {
-        if (
-          in_array($target, $contribution_note_mappings, TRUE)
-          && isset($params[$target])
-          && '' !== $params[$target]
-        ) {
-          Note::create(FALSE)
-            ->addValue('entity_table', 'civicrm_contribution')
-            ->addValue('entity_id', $contribution['id'])
-            ->addValue('note', $params[$target])
-            ->execute();
-        }
-      }
+      CRM_Twingle_Submission::createContributionNotes(intval($contribution['id']), $params, $profile);;
 
       $result_values['contribution'] = $contribution;
 

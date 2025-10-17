@@ -18,6 +18,7 @@ declare(strict_types = 1);
 use CRM_Twingle_ExtensionUtil as E;
 use Civi\Twingle\Exceptions\BaseException;
 use Civi\Twingle\Shop\Exceptions\LineItemException;
+use Civi\Api4\Note;
 
 class CRM_Twingle_Submission {
 
@@ -51,6 +52,23 @@ class CRM_Twingle_Submission {
     'price',
     'count',
     'total_value',
+  ];
+
+  /**
+   * List of fields in the Twingle submission that can be used to create a
+   * contribution note.
+   */
+  const CONTRIBUTION_NOTE_TARGETS =  [
+    'purpose',
+    'remarks',
+  ];
+
+  /**
+   * List of fields in the Twingle submission that can be used to create a
+   * contact note.
+   */
+  const CONTACT_NOTE_TARGETS =  [
+    'user_extrafield',
   ];
 
   /**
@@ -590,5 +608,63 @@ class CRM_Twingle_Submission {
     }
 
     return $line_items;
+  }
+
+  /**
+   * Create contact notes.
+   *
+   * @param $contact_id int The contact id.
+   * @param $params array The params array from the submission.
+   * @param $profile CRM_Twingle_Profile The twingle profile used.
+   *
+   * @return void
+   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
+   */
+  public static function createContactNotes(int $contact_id, array $params, CRM_Twingle_Profile $profile): void {
+    /** @phpstan-var array<string> $contact_note_mappings */
+    $contact_note_mappings = $profile->getAttribute('map_as_contact_notes', []);
+    foreach (self::CONTACT_NOTE_TARGETS as $target) {
+      if (
+        isset($params[$target])
+        && '' !== $params[$target]
+        && in_array($target, $contact_note_mappings, TRUE)
+      ) {
+        Note::create(FALSE)
+          ->addValue('entity_table', 'civicrm_contact')
+          ->addValue('entity_id', $contact_id)
+          ->addValue('note', $params[$target])
+          ->execute();
+      }
+    }
+  }
+
+  /**
+   * Create contribution notes.
+   *
+   * @param $contribution_id int The contribution id.
+   * @param $params array The params array from the submission.
+   * @param $profile CRM_Twingle_Profile The twingle profile used.
+   *
+   * @return void
+   * @throws \CiviCRM_API3_Exception
+   * @throws \CRM_Core_Exception
+   */
+  public static function createContributionNotes(int $contribution_id, array $params, CRM_Twingle_Profile $profile): void {
+    /** @phpstan-var array<string> $contribution_note_mappings */
+    $contribution_note_mappings = $profile->getAttribute('map_as_contribution_notes', []);
+    foreach (self::CONTRIBUTION_NOTE_TARGETS as $target) {
+      if (
+        in_array($target, $contribution_note_mappings, TRUE)
+        && isset($params[$target])
+        && '' !== $params[$target]
+      ) {
+        Note::create(FALSE)
+          ->addValue('entity_table', 'civicrm_contribution')
+          ->addValue('entity_id', $contribution_id)
+          ->addValue('note', $params[$target])
+          ->execute();
+      }
+    }
   }
 }
