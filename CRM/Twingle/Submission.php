@@ -545,6 +545,7 @@ class CRM_Twingle_Submission {
       elseif ($product['id'] === self::TWINGLE_ADDITIONAL_DONATION_ID) {
         $additional_donation_financial_type_id = $profile->getAttribute('shop_additional_donation_financial_type', 1);
         $line_item_data['financial_type_id'] = $additional_donation_financial_type_id;
+        $line_item_data['price_field_id'] = 1;  # Hard-code to 1 which is the default for "contribution_amount"
       }
       // If not found, use the shops default financial type
       else {
