@@ -61,6 +61,58 @@ class TwingleShopUtils {
   }
 
   /**
+   * Convert string values to float.
+   *
+   * @param array<string, mixed> $data
+   * @param list<string> $str_to_float_conversion
+   *
+   * @return void
+   */
+  public static function convert_str_to_float(array &$data, array $str_to_float_conversion): void {
+    foreach ($str_to_float_conversion as $attribute) {
+      if (isset($data[$attribute]) && $data[$attribute] !== '') {
+        if (!is_numeric($data[$attribute])) {
+          throw new \RuntimeException(
+            "Could not convert attribute '$attribute' to float."
+          );
+        }
+        $data[$attribute] = (float) $data[$attribute];
+      }
+    }
+  }
+
+  /**
+   * Calculate the tax amount included in a gross amount.
+   *
+   * Uses the same calculation as CiviCRM core does for tax inclusive line
+   * totals (see CRM_Price_BAO_LineItem::getTaxAmountForLineItem()).
+   *
+   * @param float $gross_amount
+   *  Amount including tax.
+   * @param float $tax_rate
+   *  Tax rate in percent.
+   *
+   * @return float
+   */
+  public static function calculate_included_tax(float $gross_amount, float $tax_rate): float {
+    return round($gross_amount - $gross_amount / (1 + $tax_rate / 100), 2);
+  }
+
+  /**
+   * Calculate the net amount of a gross amount.
+   *
+   * @param float $gross_amount
+   *  Amount including tax.
+   * @param float $tax_rate
+   *  Tax rate in percent.
+   *
+   * @return float
+   */
+  public static function calculate_net_amount(float $gross_amount, float $tax_rate): float {
+    return round($gross_amount - self::calculate_included_tax($gross_amount, $tax_rate), 2);
+  }
+
+  /**
    * Convert int values to bool.
    *
    * @param array $data

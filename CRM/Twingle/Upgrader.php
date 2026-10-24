@@ -29,8 +29,8 @@ class CRM_Twingle_Upgrader extends CRM_Extension_Upgrader_Base {
     // create a DB table for the twingle profiles
     $this->executeSqlFile('sql/civicrm_twingle_profile.sql');
 
-    // create DB tables for the twingle shop
-    $this->executeSqlFile('sql/civicrm_twingle_shop.sql');
+    // The tables for the twingle shop are created by the AutomaticUpgrader
+    // since migrating to Entity Framework v2
 
     // add a default profile
     CRM_Twingle_Profile::createDefaultProfile()->saveProfile();
@@ -166,6 +166,23 @@ class CRM_Twingle_Upgrader extends CRM_Extension_Upgrader_Base {
     // With logging enabled, log_civicrm_twingle_shop needs the same change
     if ((bool) Civi::settings()->get('logging')) {
       (new CRM_Logging_Schema())->fixSchemaDifferencesFor('civicrm_twingle_shop');
+    }
+    return TRUE;
+  }
+
+  /**
+   * Add a field for the VAT rate to Twingle products.
+   *
+   * @return TRUE on success
+   */
+  public function upgrade_5191(): bool {
+    if (!E::schema()->schemaFieldExists('TwingleProduct', 'vat_rate')) {
+      E::schema()->alterSchemaField('TwingleProduct', 'vat_rate', [
+        'title' => E::ts('Vat Rate (%)'),
+        'sql_type' => 'decimal(5,2)',
+        'input_type' => 'Text',
+        'description' => E::ts('VAT rate in percent'),
+      ], NULL);
     }
     return TRUE;
   }

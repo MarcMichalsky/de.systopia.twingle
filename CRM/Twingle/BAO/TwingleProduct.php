@@ -61,12 +61,20 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
   public $tw_updated_at;
 
   /**
+   * Rate of the VAT.
+   *
+   * @var float|null
+   */
+  public $vat_rate;
+
+  /**
    * The values of this attributes can be 0.
    * (For filtering purposes)
    */
   protected const CAN_BE_ZERO = [
     'price',
     'sort',
+    'vat_rate',
   ];
 
   /**
@@ -81,8 +89,15 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
     'external_id',
     'tw_updated_at',
     'tw_created_at',
-    'price',
     'sort',
+  ];
+
+  /**
+   * Attributes that need to be converted to float.
+   */
+  protected const STR_TO_FLOAT_CONVERSION = [
+    'price',
+    'vat_rate',
   ];
 
   /**
@@ -105,6 +120,7 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
    */
   protected const EMPTY_STRING_TO_NULL = [
     'price',
+    'vat_rate',
   ];
 
   /**
@@ -117,7 +133,7 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
     'name' => CRM_Utils_Type::T_STRING,
     'is_active' => CRM_Utils_Type::T_BOOLEAN,
     'description' => CRM_Utils_Type::T_STRING,
-    'price' => CRM_Utils_Type::T_INT,
+    'price' => CRM_Utils_Type::T_FLOAT,
     'created_at' => CRM_Utils_Type::T_INT,
     'tw_created_at' => CRM_Utils_Type::T_INT,
     'updated_at' => CRM_Utils_Type::T_INT,
@@ -129,6 +145,7 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
     'financial_type_id' => CRM_Utils_Type::T_INT,
     'twingle_shop_id' => CRM_Utils_Type::T_INT,
     'price_field_id' => CRM_Utils_Type::T_INT,
+    'vat_rate' => CRM_Utils_Type::T_FLOAT,
     // phpcs:disable Squiz.PHP.CommentedOutCode.Found
     # "text" => \CRM_Utils_Type::T_STRING,
     # "images" => \CRM_Utils_Type::T_STRING,
@@ -143,30 +160,53 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
   ];
 
   /**
-   * Change attribute names to match the database column names.
+   * Transform attribute names and values to match the database column names
+   * and types.
    *
-   * @param array $values
+   * @param array<string, mixed> $values
    *  Array with product data from Twingle API
    *
-   * @return array
+   * @return array<string, mixed>
    */
-  public static function renameTwingleAttrs(array $values) {
+  public static function transformTwingleAttrs(array $values): array {
     $new_values = [];
+
     foreach ($values as $key => $value) {
-      // replace 'id' with 'external_id'
-      if ($key === 'id') {
-        $key = 'external_id';
+      switch ($key) {
+        case 'id':
+          $key = 'external_id';
+          break;
+
+        case 'updated_at':
+          $key = 'tw_updated_at';
+          break;
+
+        case 'created_at':
+          $key = 'tw_created_at';
+          break;
+
+        case 'included_tax':
+          $key = 'vat_rate';
+          $value = is_numeric($value) ? round((float) $value * 100, 2) : 0.0;
+          break;
       }
-      // replace 'updated_at' with 'tw_updated_at'
-      if ($key === 'updated_at') {
-        $key = 'tw_updated_at';
-      }
-      // replace 'created_at' with 'tw_created_at'
-      if ($key === 'created_at') {
-        $key = 'tw_created_at';
-      }
+
       $new_values[$key] = $value;
     }
+
+    // Twingle prices include VAT, but CiviCRM adds the sales tax of the
+    // financial type on top of the price. So we store the net price.
+    if (
+      is_numeric($new_values['price'] ?? NULL)
+      && is_float($new_values['vat_rate'] ?? NULL)
+      && $new_values['vat_rate'] > 0
+    ) {
+      $new_values['price'] = TwingleShopUtils::calculate_net_amount(
+        (float) $new_values['price'],
+        $new_values['vat_rate']
+      );
+    }
+
     return $new_values;
   }
 
@@ -242,6 +282,7 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
     // Change data types
     try {
       TwingleShopUtils::convert_str_to_int($product_data, self::STR_TO_INT_CONVERSION);
+      TwingleShopUtils::convert_str_to_float($product_data, self::STR_TO_FLOAT_CONVERSION);
       TwingleShopUtils::convert_int_to_bool($product_data, self::INT_TO_BOOL_CONVERSION);
       TwingleShopUtils::convert_str_to_date($product_data, self::STR_TO_DATE_CONVERSION);
       TwingleShopUtils::convert_empty_string_to_null($product_data, self::EMPTY_STRING_TO_NULL);
@@ -446,6 +487,41 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
   }
 
   /**
+   * Count the products with an active price field but without a VAT rate,
+   * grouped by shop. These are products which have been created before the
+   * VAT rate was stored and whose price fields still contain the gross price.
+   *
+   * @return array<string, int>
+   *   Number of products by shop name
+   *
+   * @throws \Civi\Core\Exception\DBQueryException
+   */
+  public static function countProductsWithoutVatRate(): array {
+    // The check may run before the upgrade adding the column has been applied.
+    if (!CRM_Core_BAO_SchemaHandler::checkIfFieldExists('civicrm_twingle_product', 'vat_rate')) {
+      return [];
+    }
+
+    $dao = CRM_Core_DAO::executeQuery(
+      'SELECT ts.name, COUNT(tp.id) AS product_count
+      FROM civicrm_twingle_product tp
+      INNER JOIN civicrm_twingle_shop ts ON ts.id = tp.twingle_shop_id
+      INNER JOIN civicrm_price_field pf ON pf.id = tp.price_field_id
+      WHERE tp.vat_rate IS NULL AND pf.is_active = 1
+      GROUP BY ts.id, ts.name
+      ORDER BY ts.name'
+    );
+    if (!$dao instanceof CRM_Core_DAO) {
+      return [];
+    }
+    $counts = [];
+    foreach ($dao->fetchMap('name', 'product_count') as $shop_name => $count) {
+      $counts[(string) $shop_name] = is_numeric($count) ? (int) $count : 0;
+    }
+    return $counts;
+  }
+
+  /**
    * Add Twingle Product
    *
    * @param string $mode
@@ -579,10 +655,19 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
    * @throws \Civi\Twingle\Shop\Exceptions\ProductException
    */
   public function checkOutdated($product_from_twingle) {
-    // Mark outdated products which have a newer timestamp in Twingle
-    if (intval($this->updated_at) < intval($product_from_twingle['updated_at'])) {
+    $values_from_twingle = self::transformTwingleAttrs($product_from_twingle);
+    $vat_rate_from_twingle = is_float($values_from_twingle['vat_rate'] ?? NULL)
+      ? $values_from_twingle['vat_rate']
+      : NULL;
+
+    // Mark outdated products which have a newer timestamp in Twingle or whose
+    // VAT rate differs (e.g. products created before the VAT rate was stored)
+    if (
+      intval($this->updated_at) < intval($product_from_twingle['updated_at'])
+      || $this->vat_rate !== $vat_rate_from_twingle
+    ) {
       // Overwrite the product with the data from Twingle
-      $this->load(self::renameTwingleAttrs($product_from_twingle));
+      $this->load($values_from_twingle);
       $this->is_outdated = TRUE;
     }
   }
@@ -600,7 +685,8 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
       $this->description === $product_to_compare_with->description &&
       $this->text === $product_to_compare_with->text &&
       $this->price === $product_to_compare_with->price &&
-      $this->external_id === $product_to_compare_with->external_id;
+      $this->external_id === $product_to_compare_with->external_id &&
+      $this->vat_rate === $product_to_compare_with->vat_rate;
   }
 
   /**
