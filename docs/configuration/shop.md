@@ -40,8 +40,9 @@ are available in the **Shop Integration** section:
     The price sets can also be used to manually record orders, e.g. phone
     orders, with the same line items as orders placed through the Twingle Shop.
 
-Products which have changed in Twingle since their price field has been created
-are marked as outdated and can be updated with the **Update** button.
+Products which have changed in Twingle since their price field has been created,
+or whose price field amount does not match the price in Twingle, are marked as
+outdated and can be updated with the **Update** button.
 
 ## VAT
 
@@ -56,8 +57,11 @@ account **on top** of the line total.
 To bring both together, the Twingle extension
 
 * creates the price fields of products with the **net price**, i.e. the price
-  from Twingle without the VAT rate specified in the TwingleMANAGER. Products
-  without VAT are created with their full price.
+  from Twingle without the VAT rate specified in the TwingleMANAGER. The net
+  price is not rounded to cents (CiviCRM stores price field amounts with nine
+  decimals), so that CiviCRM calculates the same gross amounts as Twingle when
+  recording orders manually. Products without VAT are created with their full
+  price.
 * splits off the VAT included in the submitted amounts when processing an
   order, using the tax rate of the line item's financial type. Line total and
   tax amount of each line item add up to the amount submitted by Twingle again.
@@ -68,9 +72,11 @@ of a product. As the net unit price is rounded, the net unit price multiplied
 by the quantity may differ from the net line total by a cent.
 
 Example: a coffee costs 3.00 EUR including 7 % VAT. The price field is created
-with 2.80 EUR. When an order for two coffees (6.00 EUR) is submitted, the line
-item is created with a unit price of 2.80 EUR, a line total of 5.61 EUR and a
-tax amount of 0.39 EUR, adding up to 6.00 EUR again.
+with 2.803738318 EUR (3.00 EUR / 1.07). When an order for two coffees
+(6.00 EUR) is submitted, the line item is created with a unit price of
+2.80 EUR, a line total of 5.61 EUR and a tax amount of 0.39 EUR, adding up to
+6.00 EUR again. An order for two coffees recorded manually in CiviCRM results
+in the same amounts.
 
 ### Configuring VAT in CiviCRM
 

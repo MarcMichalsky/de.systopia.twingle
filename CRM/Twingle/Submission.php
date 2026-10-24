@@ -1256,22 +1256,25 @@ class CRM_Twingle_Submission {
 
       if ($price_field !== NULL) {
         // Log warning if price is not variable and differs from the submission
-        // (both without tax)
-        $net_unit_price = TwingleShopUtils::calculate_net_amount($unit_price, $tax_rate);
-        if (
-          $price_field->price !== NULL
-          && round((float) $price_field->price, 2) !== $net_unit_price
-        ) {
-          Civi::log()->warning(E::LONG_NAME .
-            ': Price for product ' . $product['name'] . ' differs from the PriceField. ' .
-            'Using the price from the submission.',
-            [
-              'price_field' => $price_field->price,
-              'submission' => $net_unit_price,
-              'submission_including_tax' => $product['price'],
-              'tax_rate' => $tax_rate,
-            ]
+        // (both including tax). The price field contains the net price which
+        // has been calculated with the VAT rate of the Twingle product.
+        if ($price_field->price !== NULL) {
+          $price_field_gross_price = TwingleShopUtils::calculate_gross_price(
+            (float) $price_field->price,
+            (float) ($price_field->vat_rate ?? 0)
           );
+          if ($price_field_gross_price !== round($unit_price, 2)) {
+            Civi::log()->warning(E::LONG_NAME .
+              ': Price for product ' . $product['name'] . ' differs from the PriceField. ' .
+              'Using the price from the submission.',
+              [
+                'price_field' => $price_field->price,
+                'price_field_including_tax' => $price_field_gross_price,
+                'submission_including_tax' => $product['price'],
+                'vat_rate' => $price_field->vat_rate,
+              ]
+            );
+          }
         }
 
         // Log warning if the VAT rate from Twingle differs from the sales tax

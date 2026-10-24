@@ -195,13 +195,13 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
     }
 
     // Twingle prices include VAT, but CiviCRM adds the sales tax of the
-    // financial type on top of the price. So we store the net price.
+    // financial type on top of the price. So we store the unrounded net price.
     if (
       is_numeric($new_values['price'] ?? NULL)
       && is_float($new_values['vat_rate'] ?? NULL)
       && $new_values['vat_rate'] > 0
     ) {
-      $new_values['price'] = TwingleShopUtils::calculate_net_amount(
+      $new_values['price'] = TwingleShopUtils::calculate_net_price(
         (float) $new_values['price'],
         $new_values['vat_rate']
       );
@@ -662,14 +662,28 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
 
     // Mark outdated products which have a newer timestamp in Twingle or whose
     // VAT rate differs (e.g. products created before the VAT rate was stored)
+    // or whose price differs (e.g. price fields with a rounded net price)
     if (
       intval($this->updated_at) < intval($product_from_twingle['updated_at'])
       || $this->vat_rate !== $vat_rate_from_twingle
+      || self::roundPrice($this->price) !== self::roundPrice($values_from_twingle['price'] ?? NULL)
     ) {
       // Overwrite the product with the data from Twingle
       $this->load($values_from_twingle);
       $this->is_outdated = TRUE;
     }
+  }
+
+  /**
+   * Round a price to the precision of a price field amount for comparison.
+   *
+   * @param mixed $price
+   *
+   * @return float|null
+   *   NULL if the price is not numeric (i.e. custom price)
+   */
+  private static function roundPrice($price): ?float {
+    return is_numeric($price) ? round((float) $price, TwingleShopUtils::PRICE_PRECISION) : NULL;
   }
 
   /**

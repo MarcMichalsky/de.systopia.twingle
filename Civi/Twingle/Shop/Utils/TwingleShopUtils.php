@@ -7,6 +7,12 @@ namespace Civi\Twingle\Shop\Utils;
 class TwingleShopUtils {
 
   /**
+   * Number of decimals of a price field amount
+   * (civicrm_price_field_value.amount is decimal(18,9)).
+   */
+  public const PRICE_PRECISION = 9;
+
+  /**
    * Filter for allowed attributes.
    *
    * @param array $data
@@ -110,6 +116,40 @@ class TwingleShopUtils {
    */
   public static function calculate_net_amount(float $gross_amount, float $tax_rate): float {
     return round($gross_amount - self::calculate_included_tax($gross_amount, $tax_rate), 2);
+  }
+
+  /**
+   * Calculate the unrounded net price of a gross price.
+   *
+   * CiviCRM adds the sales tax on top of the price field amount. The net price
+   * must not be rounded to cents, otherwise the gross amount calculated by
+   * CiviCRM may differ from the original price (e.g. 2 x 2.80 EUR + 7 % VAT =
+   * 5.99 EUR instead of 6.00 EUR).
+   *
+   * @param float $gross_price
+   *  Price including tax.
+   * @param float $tax_rate
+   *  Tax rate in percent.
+   *
+   * @return float
+   *  The net price with the precision of a price field amount.
+   */
+  public static function calculate_net_price(float $gross_price, float $tax_rate): float {
+    return round($gross_price / (1 + $tax_rate / 100), self::PRICE_PRECISION);
+  }
+
+  /**
+   * Calculate the gross price of a net price, rounded to cents.
+   *
+   * @param float $net_price
+   *  Price without tax.
+   * @param float $tax_rate
+   *  Tax rate in percent.
+   *
+   * @return float
+   */
+  public static function calculate_gross_price(float $net_price, float $tax_rate): float {
+    return round($net_price * (1 + $tax_rate / 100), 2);
   }
 
   /**
