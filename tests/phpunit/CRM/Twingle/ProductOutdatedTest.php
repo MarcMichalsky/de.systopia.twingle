@@ -13,6 +13,9 @@ use Civi\Test\TransactionalInterface;
  * @group headless
  * @covers \CRM_Twingle_BAO_TwingleProduct::checkOutdated
  * @covers \CRM_Twingle_BAO_TwingleProduct::transformTwingleAttrs
+ * @covers \CRM_Twingle_BAO_TwingleProduct::add
+ * @covers \CRM_Twingle_BAO_TwingleProduct::createPriceField
+ * @covers \CRM_Twingle_BAO_TwingleProduct::load
  */
 class CRM_Twingle_ProductOutdatedTest extends TestCase implements HeadlessInterface, TransactionalInterface {
 
@@ -54,6 +57,50 @@ class CRM_Twingle_ProductOutdatedTest extends TestCase implements HeadlessInterf
   }
 
   /**
+   * A product whose price has been fixed in Twingle after its price field
+   * has been created with a custom price.
+   */
+  public function testUpdateFixesPriceOfFormerCustomPriceProduct(): void {
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['all CiviCRM permissions and ACLs'];
+    $product = $this->createProduct(1.0, 7.0, TRUE);
+    self::assertNull($product->price);
+
+    $product->checkOutdated($this->getProductFromTwingle(3.0, 0.07));
+    self::assertTrue(get_object_vars($product)['is_outdated'] ?? NULL);
+
+    // Update the product like the profile form does
+    $values = get_object_vars($product);
+    /** @phpstan-var array{values: array<string, mixed>} $result */
+    $result = civicrm_api3('TwingleProduct', 'create', array_intersect_key($values, array_flip([
+      'id',
+      'name',
+      'is_active',
+      'price',
+      'vat_rate',
+      'external_id',
+      'financial_type_id',
+      'price_field_id',
+      'tw_updated_at',
+      'twingle_shop_id',
+    ])));
+    self::assertEquals(2.803738318, $result['values']['price']);
+
+    $price_field = \Civi\Api4\PriceField::get(FALSE)
+      ->addSelect('is_enter_qty', 'is_display_amounts')
+      ->addWhere('id', '=', $values['price_field_id'])
+      ->execute()
+      ->single();
+    self::assertFalse($price_field['is_enter_qty']);
+    self::assertTrue($price_field['is_display_amounts']);
+
+    $product = CRM_Twingle_BAO_TwingleProduct::findByExternalId(self::EXTERNAL_ID);
+    self::assertNotNull($product);
+    self::assertSame(2.803738318, $product->price);
+    $product->checkOutdated($this->getProductFromTwingle(3.0, 0.07));
+    self::assertEmpty(get_object_vars($product)['is_outdated'] ?? NULL);
+  }
+
+  /**
    * @phpstan-return array<string, mixed>
    */
   private function getProductFromTwingle(float $price, float|int $included_tax): array {
@@ -74,6 +121,7 @@ class CRM_Twingle_ProductOutdatedTest extends TestCase implements HeadlessInterf
   private function createProduct(
     float $amount,
     float $vat_rate,
+    bool $custom_price = FALSE,
   ): CRM_Twingle_BAO_TwingleProduct {
     $price_set_id = \Civi\Api4\PriceSet::create(FALSE)
       ->addValue('name', 'twingle_test_shop')
@@ -88,6 +136,7 @@ class CRM_Twingle_ProductOutdatedTest extends TestCase implements HeadlessInterf
       ->addValue('label', 'Coffee')
       ->addValue('html_type', 'Text')
       ->addValue('is_active', TRUE)
+      ->addValue('is_enter_qty', $custom_price)
       ->execute()
       ->single()['id'];
     \Civi\Api4\PriceFieldValue::create(FALSE)

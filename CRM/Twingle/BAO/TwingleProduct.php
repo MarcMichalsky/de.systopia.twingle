@@ -2,7 +2,6 @@
 
 declare(strict_types = 1);
 
-use Civi\Api4\PriceField;
 use Civi\Api4\PriceFieldValue;
 use Civi\Twingle\Shop\Exceptions\ProductException;
 use Civi\Twingle\Shop\Exceptions\ShopException;
@@ -231,9 +230,11 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
       self::CAN_BE_ZERO,
     );
 
-    // Does this product allow to enter a custom price?
+    // Does this product allow to enter a custom price? Only fall back to the
+    // existing price field if no price is given, otherwise a product whose
+    // price has been fixed in Twingle could never be updated.
     $custom_price = array_key_exists('price', $product_data) && $product_data['price'] === NULL;
-    if (!$custom_price && isset($product_data['price_field_id'])) {
+    if (!$custom_price && !isset($product_data['price']) && isset($product_data['price_field_id'])) {
       try {
         $price_field = civicrm_api3('PriceField', 'getsingle', [
           'id' => $product_data['price_field_id'],
@@ -276,7 +277,7 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
         ?? $price_field_value['financial_type_id'];
       $product_data['is_active'] = $product_data['is_active'] ?? $price_field_value['is_active'];
       $product_data['sort'] = $product_data['sort'] ?? $price_field_value['weight'];
-      $product_data['description'] = $product_data['description'] ?? $price_field_value['description'];
+      $product_data['description'] = $product_data['description'] ?? $price_field_value['description'] ?? NULL;
     }
 
     // Change data types
@@ -369,11 +370,11 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
       'is_required' => FALSE,
     ];
 
-    // If the product has no fixed price, allow the user to enter a custom price
-    if ($this->price === NULL) {
-      $price_field_data['is_enter_qty'] = TRUE;
-      $price_field_data['is_display_amounts'] = FALSE;
-    }
+    // If the product has no fixed price, allow the user to enter a custom price.
+    // Set both explicitly, as the price of an existing product may have been
+    // fixed in the meantime.
+    $price_field_data['is_enter_qty'] = $this->price === NULL;
+    $price_field_data['is_display_amounts'] = $this->price !== NULL;
 
     // Add id if in edit mode
     if ($mode === 'edit') {
@@ -582,8 +583,16 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
         $e
       );
     }
-    $result = self::findById((int) $this->id);
-    /** @var static $result */
+    // Reload the product along with the price from its price field, which is
+    // not stored in the product table
+    $result = self::findByExternalId($this->external_id);
+    if ($result === NULL) {
+      $tx->rollback();
+      throw new ProductException(
+        E::ts('Could not find TwingleProduct in database after saving it.'),
+        ProductException::ERROR_CODE_COULD_NOT_CREATE_PRODUCT
+      );
+    }
     $this->load($result->getAttributes());
 
     // Register post-hook
@@ -711,12 +720,13 @@ class CRM_Twingle_BAO_TwingleProduct extends CRM_Twingle_DAO_TwingleProduct {
    */
   public function getFinancialTypeId(): ?int {
     if (!empty($this->price_field_id)) {
-      $price_set = PriceField::get()
+      // The financial type is stored in the price field value
+      $price_field_value = PriceFieldValue::get()
         ->addSelect('financial_type_id')
-        ->addWhere('id', '=', $this->price_field_id)
+        ->addWhere('price_field_id', '=', $this->price_field_id)
         ->execute()
         ->first();
-      return $price_set['financial_type_id'];
+      return $price_field_value['financial_type_id'] ?? NULL;
     }
     return NULL;
   }
