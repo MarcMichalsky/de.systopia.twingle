@@ -58,7 +58,7 @@ class CRM_Twingle_Submission {
    * List of fields in the Twingle submission that can be used to create a
    * contribution note.
    */
-  public const CONTRIBUTION_NOTE_TARGETS =  [
+  public const CONTRIBUTION_NOTE_TARGETS = [
     'purpose',
     'remarks',
   ];
@@ -67,7 +67,7 @@ class CRM_Twingle_Submission {
    * List of fields in the Twingle submission that can be used to create a
    * contact note.
    */
-  public const CONTACT_NOTE_TARGETS =  [
+  public const CONTACT_NOTE_TARGETS = [
     'user_extrafield',
   ];
 
@@ -1151,7 +1151,7 @@ class CRM_Twingle_Submission {
 
     if ($mandate_data['type'] === 'OOFF') {
       // Add contribution data to result_values for later use
-      $contribution_id = (int) $this->getResultValue('sepa_mandate')['entity_id'];
+      $contribution_id = $this->getResultValue('sepa_mandate')['entity_id'];
       if ($contribution_id) {
         $contribution = civicrm_api3(
           'Contribution',
@@ -1167,7 +1167,7 @@ class CRM_Twingle_Submission {
       }
 
       // Add notes to the contribution.
-      self::createContributionNotes($contribution_id, $params, $profile);
+      self::createContributionNotes((int) $contribution_id, $params, $profile);
 
       // Add products as line items to the contribution
       if (!empty($params['products']) && $profile->isShopEnabled()) {
@@ -1405,7 +1405,11 @@ class CRM_Twingle_Submission {
    *
    * @throws \CRM_Core_Exception
    */
-  public static function createContributionNotes(int $contribution_id, array $params, CRM_Twingle_Profile $profile): void {
+  public static function createContributionNotes(
+    int $contribution_id,
+    array $params,
+    CRM_Twingle_Profile $profile
+  ): void {
     /** @phpstan-var array<string> $contribution_note_mappings */
     $contribution_note_mappings = $profile->getAttribute('map_as_contribution_notes', []);
     foreach (self::CONTRIBUTION_NOTE_TARGETS as $target) {
